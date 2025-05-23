@@ -1,24 +1,29 @@
-name: Pull and Run BusyBox on Windows Docker Desktop
+name: Docker Volume Reuse with MongoDB
 
 on:
   workflow_dispatch:
 
 jobs:
-  run-busybox:
+  volume-persistence:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Log in to Docker Hub using login-action
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DU }}
-          password: ${{ secrets.DP }}
+    - name: Docker login
+      run: |
+        echo "${{ secrets.DP }}" | docker login -u "${{ secrets.DU }}" --password-stdin
 
-      - name: Pull BusyBox image
-        run: docker pull busybox
+    - name: Create Docker volume
+      run: docker volume create mongo-data
 
-      - name: Run BusyBox container
-        run: docker run busybox echo "Hello from BusyBox on Windows!"
+    - name: Run Container A and copy file
+      run: |
+        docker run -d --name container-a -v mongo-data:/data mongo:latest tail -f /dev/null
+        docker cp file.json container-a:/data/file.json
+        docker rm -f container-a
+
+    - name: Run Container B and read file
+      run: |
+        docker run --rm -v mongo-data:/data busybox cat /data/file.json
